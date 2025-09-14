@@ -41,17 +41,29 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
   }
 
   void _initializeOpenVPN() {
-    _openVPN = openvpn.OpenVPN(
-      onVpnStatusChanged: (data) {
-        print('🔵 OpenVPN onVpnStatusChanged callback triggered');
-        _handleOpenVpnStatusChange(data);
-      },
-      onVpnStageChanged: (stage, message) {
-        print('🔵 OpenVPN stage change: $stage - $message');
-        _handleOpenVpnStageChange(stage.toString(), message);
-      },
-    );
-    print('🟢 OpenVPN instance initialized successfully');
+    try {
+      _openVPN = openvpn.OpenVPN(
+        onVpnStatusChanged: (data) {
+          print('🔵 OpenVPN onVpnStatusChanged callback triggered');
+          _handleOpenVpnStatusChange(data);
+        },
+        onVpnStageChanged: (stage, message) {
+          print('🔵 OpenVPN stage change: $stage - $message');
+          _handleOpenVpnStageChange(stage.toString(), message);
+        },
+      );
+      print('🟢 OpenVPN instance initialized successfully');
+
+      // Initialize the OpenVPN plugin
+      _openVPN?.initialize(
+        groupIdentifier: "group.com.softether.vpn",
+        providerBundleIdentifier: "com.softether.vpn.NetworkExtension",
+        localizedDescription: "SoftEther VPN Client",
+      );
+      print('🟢 OpenVPN plugin initialized');
+    } catch (e) {
+      print('🔴 OpenVPN initialization failed: $e');
+    }
   }
 
   void _initializeConnectivityMonitoring() {

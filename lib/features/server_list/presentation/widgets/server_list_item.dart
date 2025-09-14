@@ -128,7 +128,7 @@ class ServerListItem extends StatelessWidget {
     if (speed > 1000) {
       return '${(speed / 1000).toStringAsFixed(1)} Kbps';
     }
-    return '${speed} bps';
+    return '$speed bps';
   }
 
   String _formatUptime(int uptimeSeconds) {

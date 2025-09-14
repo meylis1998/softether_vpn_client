@@ -114,7 +114,7 @@ class ConnectionCard extends StatelessWidget {
   void _toggleConnection(
     BuildContext context,
     bool isConnected,
-    selectedConfig,
+    VpnConfig? selectedConfig,
   ) {
     print('🔵 ConnectionCard: User tapped ${isConnected ? 'Disconnect' : 'Connect'}');
 
