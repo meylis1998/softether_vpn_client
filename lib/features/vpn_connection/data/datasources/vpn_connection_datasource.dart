@@ -111,11 +111,12 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
     if (!Platform.isAndroid) return true;
 
     try {
-      // This is a simplified check - in real implementation,
-      // you would use platform channels to check VPN permission
+      // Try to prepare VPN, if it fails, permission is not granted
+      await FlutterVpn.prepare();
       return true;
     } catch (e) {
-      throw PermissionException('Failed to check VPN permission: $e');
+      // If prepare fails, assume no permission
+      return false;
     }
   }
 
@@ -124,8 +125,8 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
     if (!Platform.isAndroid) return true;
 
     try {
-      // This is a simplified implementation - in real implementation,
-      // you would use platform channels to request VPN permission
+      // Prepare VPN connection (this will request permission if needed)
+      await FlutterVpn.prepare();
       return true;
     } catch (e) {
       throw PermissionException('Failed to request VPN permission: $e');
@@ -138,25 +139,26 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
     }
 
     try {
+      // First check and request permissions
+      if (!await checkVpnPermission()) {
+        final hasPermission = await requestVpnPermission();
+        if (!hasPermission) {
+          throw VpnConnectionException('VPN permission denied');
+        }
+      }
+
       await FlutterVpn.connectIkev2EAP(
         server: config.serverAddress,
         username: config.username,
         password: config.password,
       );
 
-      // Assume success for now - in real implementation, check the result
-      final result = true;
-
-      if (result) {
-        _updateStatus(VpnConnectionStatusModel(
-          status: 'connected',
-          configId: config.id,
-          configName: config.name,
-          connectedAt: DateTime.now(),
-        ));
-      } else {
-        throw VpnConnectionException('L2TP connection failed');
-      }
+      // Connection initiated successfully, status will be updated via platform channels
+      _updateStatus(VpnConnectionStatusModel(
+        status: 'connecting',
+        configId: config.id,
+        configName: config.name,
+      ));
     } catch (e) {
       throw VpnConnectionException('L2TP connection failed: $e');
     }
@@ -177,15 +179,29 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
       throw VpnConnectionException('OpenVPN config is required');
     }
 
-    _openVPN?.connect(
-      config.ovpnConfig!,
-      config.name,
-      username: config.username,
-      password: config.password,
-      certIsRequired: false,
-    );
+    try {
+      // First check and request permissions
+      if (Platform.isAndroid) {
+        if (!await checkVpnPermission()) {
+          final hasPermission = await requestVpnPermission();
+          if (!hasPermission) {
+            throw VpnConnectionException('VPN permission denied');
+          }
+        }
+      }
 
-    // OpenVPN status updates will be handled by the callback
+      _openVPN?.connect(
+        config.ovpnConfig!,
+        config.name,
+        username: config.username,
+        password: config.password,
+        certIsRequired: false,
+      );
+
+      // OpenVPN status updates will be handled by the callback
+    } catch (e) {
+      throw VpnConnectionException('OpenVPN connection failed: $e');
+    }
   }
 
   Future<void> _disconnectOpenVPN() async {
@@ -196,24 +212,43 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
   void _handleOpenVpnStatusChange(openvpn.VpnStatus? data) {
     if (data == null) return;
 
-    String status;
-    // Note: OpenVPN plugin status handling - simplified for now
-    // In real implementation, you'd need to check the actual OpenVPN plugin API
-    status = 'connected'; // Simplified - should be based on actual data
+    String status = 'connecting';
+    DateTime? connectedAt;
+
+    // Map OpenVPN status to our internal status
+    switch (data.toString().toLowerCase()) {
+      case 'vpn_status_connected':
+      case 'connected':
+        status = 'connected';
+        connectedAt = DateTime.now();
+        break;
+      case 'vpn_status_connecting':
+      case 'connecting':
+        status = 'connecting';
+        break;
+      case 'vpn_status_disconnected':
+      case 'disconnected':
+        status = 'disconnected';
+        _currentConfig = null;
+        break;
+      case 'vpn_status_denied':
+      case 'vpn_status_error':
+      case 'error':
+        status = 'error';
+        break;
+      default:
+        status = 'connecting';
+    }
 
     _updateStatus(VpnConnectionStatusModel(
       status: status,
       configId: _currentConfig?.id,
       configName: _currentConfig?.name,
-      connectedAt: status == 'connected' ? DateTime.now() : null,
-      bytesReceived: null, // These would come from actual OpenVPN data
+      connectedAt: connectedAt,
+      bytesReceived: null,
       bytesSent: null,
       durationSeconds: null,
     ));
-
-    if (status == 'disconnected') {
-      _currentConfig = null;
-    }
   }
 
   void _updateStatus(VpnConnectionStatusModel newStatus) {

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/di/injection_container.dart';
 import 'features/vpn_connection/presentation/pages/main_page.dart';
+import 'features/vpn_config/presentation/bloc/vpn_config_bloc.dart';
+import 'features/vpn_connection/presentation/bloc/vpn_connection_bloc.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,14 +20,24 @@ class SoftEtherVPNApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SoftEther VPN Client',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => sl<VpnConnectionBloc>()..add(const LoadConnectionStatus()),
+        ),
+        BlocProvider(
+          create: (_) => sl<VpnConfigBloc>()..add(const LoadConfigs()),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'SoftEther VPN Client',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          useMaterial3: true,
+        ),
+        home: const MainPage(),
       ),
-      home: const MainPage(),
     );
   }
 }

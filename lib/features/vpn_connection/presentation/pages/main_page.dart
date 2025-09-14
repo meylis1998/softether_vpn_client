@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/di/injection_container.dart';
 import '../../../vpn_config/presentation/bloc/vpn_config_bloc.dart';
 import '../../../vpn_config/presentation/pages/add_config_page.dart';
-import '../bloc/vpn_connection_bloc.dart';
+import '../../../server_list/presentation/pages/server_list_page.dart';
 import '../widgets/connection_card.dart';
 import '../widgets/config_selector.dart';
 import '../widgets/configs_list.dart';
@@ -14,17 +13,7 @@ class MainPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) => sl<VpnConnectionBloc>()..add(const LoadConnectionStatus()),
-        ),
-        BlocProvider(
-          create: (_) => sl<VpnConfigBloc>()..add(const LoadConfigs()),
-        ),
-      ],
-      child: const MainPageView(),
-    );
+    return const MainPageView();
   }
 }
 
@@ -39,7 +28,13 @@ class MainPageView extends StatelessWidget {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
+            icon: const Icon(Icons.cloud_download),
+            tooltip: 'VPN Gate Servers',
+            onPressed: () => _navigateToServerList(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
+            tooltip: 'Add Manual Config',
             onPressed: () => _navigateToAddConfig(context),
           ),
         ],
@@ -66,6 +61,23 @@ class MainPageView extends StatelessWidget {
     );
 
     if (result != null && context.mounted) {
+      context.read<VpnConfigBloc>().add(const LoadConfigs());
+    }
+  }
+
+  Future<void> _navigateToServerList(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ServerListPage(
+          onServerAdded: (config) {
+            context.read<VpnConfigBloc>().add(SaveConfigEvent(config));
+          },
+        ),
+      ),
+    );
+
+    if (context.mounted) {
       context.read<VpnConfigBloc>().add(const LoadConfigs());
     }
   }
