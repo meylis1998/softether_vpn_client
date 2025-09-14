@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../vpn_config/domain/entities/vpn_config.dart';
 import '../../../vpn_config/presentation/bloc/vpn_config_bloc.dart';
 import '../../domain/entities/vpn_connection_status.dart';
 import '../bloc/vpn_connection_bloc.dart';
