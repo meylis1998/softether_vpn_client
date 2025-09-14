@@ -1,0 +1,52 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'vpn_config.freezed.dart';
+
+@freezed
+class VpnConfig with _$VpnConfig {
+  const factory VpnConfig({
+    required String id,
+    required String name,
+    required String serverAddress,
+    required int serverPort,
+    required VpnProtocol protocol,
+    required String username,
+    required String password,
+    String? presharedKey,
+    String? hubName,
+    String? ovpnConfig,
+    @Default(false) bool autoConnect,
+    DateTime? createdAt,
+    DateTime? lastConnectedAt,
+  }) = _VpnConfig;
+}
+
+enum VpnProtocol {
+  l2tpIpsec,
+  openVpn,
+  sslVpn,
+}
+
+extension VpnProtocolExtension on VpnProtocol {
+  String get displayName {
+    switch (this) {
+      case VpnProtocol.l2tpIpsec:
+        return 'L2TP/IPSec';
+      case VpnProtocol.openVpn:
+        return 'OpenVPN';
+      case VpnProtocol.sslVpn:
+        return 'SSL-VPN';
+    }
+  }
+
+  String get identifier {
+    switch (this) {
+      case VpnProtocol.l2tpIpsec:
+        return 'l2tp_ipsec';
+      case VpnProtocol.openVpn:
+        return 'openvpn';
+      case VpnProtocol.sslVpn:
+        return 'ssl_vpn';
+    }
+  }
+}
