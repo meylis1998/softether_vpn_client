@@ -24,6 +24,9 @@ abstract class VpnConnectionDataSource {
 class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
   openvpn.OpenVPN? _openVPN;
   VpnConfig? _currentConfig;
+  bool _isInitializing = false;
+  bool _isInitialized = false;
+  Completer<void>? _initializationCompleter;
   final StreamController<VpnConnectionStatusModel> _statusController =
       StreamController<VpnConnectionStatusModel>.broadcast();
 
@@ -40,8 +43,29 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
     _initializeConnectivityMonitoring();
   }
 
-  void _initializeOpenVPN() {
+  Future<void> _initializeOpenVPN() async {
+    // If already initializing, return the completer to avoid duplicate initialization
+    if (_isInitializing) {
+      if (_initializationCompleter != null) {
+        print('🔵 OpenVPN already initializing, waiting for completion...');
+        await _initializationCompleter!.future;
+      }
+      return;
+    }
+
+    // If already initialized, no need to reinitialize
+    if (_isInitialized) {
+      print('🔵 OpenVPN already initialized');
+      return;
+    }
+
+    // Mark as initializing
+    _isInitializing = true;
+    _initializationCompleter = Completer<void>();
+    
     try {
+      print('🔵 Starting OpenVPN initialization...');
+      
       _openVPN = openvpn.OpenVPN(
         onVpnStatusChanged: (data) {
           print('🔵 OpenVPN onVpnStatusChanged callback triggered');
@@ -52,17 +76,32 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
           _handleOpenVpnStageChange(stage.toString(), message);
         },
       );
-      print('🟢 OpenVPN instance initialized successfully');
+      print('🟢 OpenVPN instance created successfully');
 
-      // Initialize the OpenVPN plugin
-      _openVPN?.initialize(
-        groupIdentifier: "group.com.softether.vpn",
-        providerBundleIdentifier: "com.softether.vpn.NetworkExtension",
-        localizedDescription: "SoftEther VPN Client",
-      );
-      print('🟢 OpenVPN plugin initialized');
+      // Initialize the OpenVPN engine (this is crucial for Android)
+      if (Platform.isAndroid) {
+        try {
+          await _openVPN?.initialize(
+            groupIdentifier: "group.com.softether.vpn.softether_vpn_client",
+            providerBundleIdentifier: "com.softether.vpn.softether_vpn_client.NetworkExtension",
+            localizedDescription: "SoftEther VPN Client",
+          );
+          print('🟢 OpenVPN Android engine initialized');
+        } catch (e) {
+          print('🟡 OpenVPN initialize method not available, trying alternative approach: $e');
+          // Some versions of the plugin don't have initialize method
+          // The plugin should work without it on newer versions
+        }
+      }
+
+      _isInitialized = true;
+      _initializationCompleter?.complete();
+      print('🟢 OpenVPN setup completed');
     } catch (e) {
       print('🔴 OpenVPN initialization failed: $e');
+      _initializationCompleter?.completeError(e);
+    } finally {
+      _isInitializing = false;
     }
   }
 
@@ -108,7 +147,10 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
     // Update status based on stage information
     String status = 'connecting';
 
-    switch (stage.toLowerCase()) {
+    // Handle the stage string, which might be in the format "VPNStage.disconnected"
+    final stageValue = stage.contains('.') ? stage.split('.').last : stage;
+
+    switch (stageValue.toLowerCase()) {
       case 'connecting':
       case 'wait':
       case 'auth':
@@ -127,8 +169,17 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
         status = 'error';
         break;
       default:
-        print('🟡 Unknown OpenVPN stage: $stage');
-        status = 'connecting';
+        print('🟡 Unknown OpenVPN stage: $stage (parsed as: $stageValue)');
+        // Don't default to 'connecting' for unknown stages at startup
+        // Keep the current status if we're not in a connection process
+        if (_currentConfig == null) {
+          // Not in a connection process, keep as disconnected
+          status = 'disconnected';
+        } else {
+          // In a connection process, default to connecting
+          status = 'connecting';
+        }
+        break;
     }
 
     _updateStatus(VpnConnectionStatusModel(
@@ -320,6 +371,28 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
     }
   }
 
+  Future<void> _ensureOpenVPNInitialized() async {
+    // If not initialized or initializing, start initialization
+    if (!_isInitialized && !_isInitializing) {
+      print('🔵 OpenVPN not initialized, starting initialization...');
+      await _initializeOpenVPN();
+      return;
+    }
+
+    // If currently initializing, wait for it to complete
+    if (_isInitializing && _initializationCompleter != null) {
+      print('🔵 Waiting for OpenVPN initialization to complete...');
+      await _initializationCompleter!.future;
+      return;
+    }
+
+    // If already initialized, nothing to do
+    if (_isInitialized) {
+      print('🔵 OpenVPN already initialized');
+      return;
+    }
+  }
+
   Future<void> _connectOpenVPN(VpnConfig config) async {
     // Validate OpenVPN configuration
     final validationError = VpnConfigValidator.getOpenVPNValidationError(config.ovpnConfig);
@@ -345,19 +418,50 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
         }
       }
 
+      // Ensure OpenVPN is properly initialized before connecting
+      try {
+        await _ensureOpenVPNInitialized();
+      } catch (initError) {
+        print('🔴 OpenVPN initialization failed: $initError');
+        // Reset initialization state to allow retry
+        _resetInitializationState();
+        throw VpnConnectionException('OpenVPN initialization failed: $initError');
+      }
+
       if (_openVPN == null) {
         print('🔴 OpenVPN instance is null');
         throw VpnConnectionException('OpenVPN not initialized');
       }
 
       print('🔵 Initiating OpenVPN connection...');
-      _openVPN?.connect(
-        config.ovpnConfig!,
-        config.name,
-        username: config.username,
-        password: config.password,
-        certIsRequired: false,
-      );
+      try {
+        await _openVPN!.connect(
+          config.ovpnConfig!,
+          config.name,
+          username: config.username,
+          password: config.password,
+          certIsRequired: false,
+        );
+      } catch (e) {
+        // If the error says "need to be initialized", try to reinitialize
+        if (e.toString().contains('need to be initialized')) {
+          print('🔵 OpenVPN needs reinitialization, attempting to reinitialize...');
+          // Reset initialization state and reinitialize
+          _resetInitializationState();
+          await _initializeOpenVPN();
+          
+          // Try connection again after reinitializing
+          await _openVPN!.connect(
+            config.ovpnConfig!,
+            config.name,
+            username: config.username,
+            password: config.password,
+            certIsRequired: false,
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       print('🟢 OpenVPN connection initiated successfully');
 
@@ -385,7 +489,7 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
 
     print('🔵 OpenVPN status change: ${data.toString()}');
 
-    String status = 'connecting';
+    String status = 'disconnected'; // Default to disconnected instead of connecting
     DateTime? connectedAt;
 
     // Map OpenVPN status to our internal status
@@ -420,8 +524,17 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
         _clearConnectionTimeout();
         break;
       default:
-        print('🟡 OpenVPN status: UNKNOWN ($statusString), defaulting to connecting');
-        status = 'connecting';
+        print('🟡 OpenVPN status: UNKNOWN ($statusString)');
+        // Don't default to 'connecting' for unknown statuses at startup
+        // Keep the current status if we're not in a connection process
+        if (_currentConfig == null) {
+          // Not in a connection process, keep as disconnected
+          status = 'disconnected';
+        } else {
+          // In a connection process, default to connecting
+          status = 'connecting';
+        }
+        break;
     }
 
     print('🔵 Updating internal status to: $status');
@@ -457,6 +570,12 @@ class VpnConnectionDataSourceImpl implements VpnConnectionDataSource {
       _connectionTimeout?.cancel();
       _connectionTimeout = null;
     }
+  }
+
+  void _resetInitializationState() {
+    _isInitializing = false;
+    _isInitialized = false;
+    _initializationCompleter = null;
   }
 
   void _updateStatus(VpnConnectionStatusModel newStatus) {
