@@ -7,6 +7,7 @@ import '../../../server_list/presentation/pages/server_list_page.dart';
 import '../widgets/connection_card.dart';
 import '../widgets/config_selector.dart';
 import '../widgets/configs_list.dart';
+import '../widgets/debug_panel.dart';
 
 class MainPage extends StatelessWidget {
   const MainPage({super.key});
@@ -39,7 +40,7 @@ class MainPageView extends StatelessWidget {
           ),
         ],
       ),
-      body: const Padding(
+      body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -47,7 +48,12 @@ class MainPageView extends StatelessWidget {
             SizedBox(height: 20),
             ConfigSelector(),
             SizedBox(height: 20),
-            Expanded(child: ConfigsList()),
+            DebugPanel(),
+            SizedBox(height: 16),
+            SizedBox(
+              height: 300, // Fixed height for configs list
+              child: ConfigsList(),
+            ),
           ],
         ),
       ),

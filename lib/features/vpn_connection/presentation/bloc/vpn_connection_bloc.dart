@@ -45,16 +45,24 @@ class VpnConnectionBloc extends Bloc<VpnConnectionEvent, VpnConnectionState> {
     ConnectToVpn event,
     Emitter<VpnConnectionState> emit,
   ) async {
+    print('🔵 VpnConnectionBloc: Received connect event for ${event.config.name}');
     emit(state.copyWith(isLoading: true, errorMessage: null));
 
+    print('🔵 VpnConnectionBloc: Calling ConnectVpn use case...');
     final result = await _connectVpn(ConnectVpnParams(config: event.config));
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        isLoading: false,
-        errorMessage: failure.message ?? 'Failed to connect',
-      )),
-      (_) => emit(state.copyWith(isLoading: false)),
+      (failure) {
+        print('🔴 VpnConnectionBloc: Connection failed - ${failure.message}');
+        emit(state.copyWith(
+          isLoading: false,
+          errorMessage: failure.message ?? 'Failed to connect',
+        ));
+      },
+      (_) {
+        print('🟢 VpnConnectionBloc: Connection use case completed successfully');
+        emit(state.copyWith(isLoading: false));
+      },
     );
   }
 
@@ -96,6 +104,11 @@ class VpnConnectionBloc extends Bloc<VpnConnectionEvent, VpnConnectionState> {
     ConnectionStatusChanged event,
     Emitter<VpnConnectionState> emit,
   ) {
+    print('🔵 VpnConnectionBloc: Status changed to ${event.status.status}');
+    if (event.status.configName != null) {
+      print('🔵 VpnConnectionBloc: Config: ${event.status.configName}');
+    }
+
     emit(state.copyWith(
       status: event.status,
       isLoading: event.status.status.isTransitioning ? state.isLoading : false,

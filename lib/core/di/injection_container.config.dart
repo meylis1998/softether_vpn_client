@@ -20,6 +20,8 @@ import 'package:softether_vpn_client/features/server_list/data/datasources/serve
     as _i770;
 import 'package:softether_vpn_client/features/server_list/data/datasources/server_list_remote_datasource.dart'
     as _i302;
+import 'package:softether_vpn_client/features/server_list/data/datasources/softether_ddns_datasource.dart'
+    as _i843;
 import 'package:softether_vpn_client/features/server_list/data/repositories/server_list_repository_impl.dart'
     as _i563;
 import 'package:softether_vpn_client/features/server_list/domain/repositories/server_list_repository.dart'
@@ -86,34 +88,21 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i770.ServerListLocalDataSource>(
       () => _i770.ServerListLocalDataSourceImpl(gh<_i460.SharedPreferences>()),
     );
-    gh.lazySingleton<_i302.ServerListRemoteDataSource>(
-      () => _i302.ServerListRemoteDataSourceImpl(gh<_i519.Client>()),
-    );
     gh.lazySingleton<_i678.VpnConnectionRepository>(
       () => _i769.VpnConnectionRepositoryImpl(
         gh<_i575.VpnConnectionDataSource>(),
       ),
     );
+    gh.lazySingleton<_i843.SoftEtherDdnsDataSource>(
+      () => _i843.SoftEtherDdnsDataSourceImpl(gh<_i519.Client>()),
+    );
     gh.lazySingleton<_i94.VpnConfigRepository>(
       () => _i327.VpnConfigRepositoryImpl(gh<_i988.VpnConfigLocalDataSource>()),
     );
-    gh.lazySingleton<_i617.ServerListRepository>(
-      () => _i563.ServerListRepositoryImpl(
-        remoteDataSource: gh<_i302.ServerListRemoteDataSource>(),
-        localDataSource: gh<_i770.ServerListLocalDataSource>(),
-        networkInfo: gh<_i649.NetworkInfo>(),
-      ),
-    );
-    gh.factory<_i202.FetchServerList>(
-      () => _i202.FetchServerList(gh<_i617.ServerListRepository>()),
-    );
-    gh.factory<_i30.GetCachedServerList>(
-      () => _i30.GetCachedServerList(gh<_i617.ServerListRepository>()),
-    );
-    gh.factory<_i291.ServerListBloc>(
-      () => _i291.ServerListBloc(
-        fetchServerList: gh<_i202.FetchServerList>(),
-        getCachedServerList: gh<_i30.GetCachedServerList>(),
+    gh.lazySingleton<_i302.ServerListRemoteDataSource>(
+      () => _i302.ServerListRemoteDataSourceImpl(
+        gh<_i519.Client>(),
+        gh<_i843.SoftEtherDdnsDataSource>(),
       ),
     );
     gh.factory<_i413.ConnectVpn>(
@@ -134,11 +123,30 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i902.SaveConfig>(
       () => _i902.SaveConfig(gh<_i94.VpnConfigRepository>()),
     );
+    gh.lazySingleton<_i617.ServerListRepository>(
+      () => _i563.ServerListRepositoryImpl(
+        remoteDataSource: gh<_i302.ServerListRemoteDataSource>(),
+        localDataSource: gh<_i770.ServerListLocalDataSource>(),
+        networkInfo: gh<_i649.NetworkInfo>(),
+      ),
+    );
+    gh.factory<_i202.FetchServerList>(
+      () => _i202.FetchServerList(gh<_i617.ServerListRepository>()),
+    );
+    gh.factory<_i30.GetCachedServerList>(
+      () => _i30.GetCachedServerList(gh<_i617.ServerListRepository>()),
+    );
     gh.factory<_i843.VpnConnectionBloc>(
       () => _i843.VpnConnectionBloc(
         gh<_i413.ConnectVpn>(),
         gh<_i640.DisconnectVpn>(),
         gh<_i6.GetConnectionStatus>(),
+      ),
+    );
+    gh.factory<_i291.ServerListBloc>(
+      () => _i291.ServerListBloc(
+        fetchServerList: gh<_i202.FetchServerList>(),
+        getCachedServerList: gh<_i30.GetCachedServerList>(),
       ),
     );
     gh.factory<_i333.VpnConfigBloc>(

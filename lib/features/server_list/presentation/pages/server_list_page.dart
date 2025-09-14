@@ -10,12 +10,7 @@ import '../bloc/server_list_state.dart';
 import '../widgets/server_list_item.dart';
 
 enum SortCriteria {
-  score,
-  ping,
-  speed,
   uptime,
-  sessions,
-  country,
 }
 
 class ServerListPage extends StatefulWidget {
@@ -28,8 +23,8 @@ class ServerListPage extends StatefulWidget {
 }
 
 class _ServerListPageState extends State<ServerListPage> {
-  SortCriteria _currentSort = SortCriteria.score;
-  bool _ascending = false;
+  SortCriteria _currentSort = SortCriteria.uptime;
+  bool _ascending = false; // False = newest first
 
   @override
   Widget build(BuildContext context) {
@@ -39,92 +34,22 @@ class _ServerListPageState extends State<ServerListPage> {
         appBar: AppBar(
           title: const Text('VPN Gate Servers'),
           actions: [
-            PopupMenuButton<SortCriteria>(
-              icon: const Icon(Icons.sort),
-              onSelected: (SortCriteria criteria) {
+            IconButton(
+              icon: Icon(
+                _ascending ? Icons.access_time : Icons.update,
+                color: _currentSort == SortCriteria.uptime ? Colors.blue : null,
+              ),
+              tooltip: 'Sort by Uptime (Latest First)',
+              onPressed: () {
                 setState(() {
-                  if (_currentSort == criteria) {
+                  if (_currentSort == SortCriteria.uptime) {
                     _ascending = !_ascending;
                   } else {
-                    _currentSort = criteria;
-                    _ascending = false;
+                    _currentSort = SortCriteria.uptime;
+                    _ascending = false; // Default to newest first
                   }
                 });
               },
-              itemBuilder: (BuildContext context) => [
-                PopupMenuItem(
-                  value: SortCriteria.score,
-                  child: Row(
-                    children: [
-                      Icon(Icons.star, size: 16),
-                      SizedBox(width: 8),
-                      Text('Score'),
-                      if (_currentSort == SortCriteria.score)
-                        Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SortCriteria.uptime,
-                  child: Row(
-                    children: [
-                      Icon(Icons.access_time, size: 16),
-                      SizedBox(width: 8),
-                      Text('Uptime (Latest)'),
-                      if (_currentSort == SortCriteria.uptime)
-                        Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SortCriteria.ping,
-                  child: Row(
-                    children: [
-                      Icon(Icons.signal_cellular_alt, size: 16),
-                      SizedBox(width: 8),
-                      Text('Ping'),
-                      if (_currentSort == SortCriteria.ping)
-                        Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SortCriteria.speed,
-                  child: Row(
-                    children: [
-                      Icon(Icons.speed, size: 16),
-                      SizedBox(width: 8),
-                      Text('Speed'),
-                      if (_currentSort == SortCriteria.speed)
-                        Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SortCriteria.sessions,
-                  child: Row(
-                    children: [
-                      Icon(Icons.people, size: 16),
-                      SizedBox(width: 8),
-                      Text('Sessions'),
-                      if (_currentSort == SortCriteria.sessions)
-                        Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: SortCriteria.country,
-                  child: Row(
-                    children: [
-                      Icon(Icons.flag, size: 16),
-                      SizedBox(width: 8),
-                      Text('Country'),
-                      if (_currentSort == SortCriteria.country)
-                        Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 16),
-                    ],
-                  ),
-                ),
-              ],
             ),
             BlocBuilder<ServerListBloc, ServerListState>(
               builder: (context, state) {
@@ -168,7 +93,7 @@ class _ServerListPageState extends State<ServerListPage> {
                             Icon(Icons.sort, size: 16, color: Colors.grey[600]),
                             const SizedBox(width: 8),
                             Text(
-                              'Sorted by ${_getSortDisplayName(_currentSort)} ${_ascending ? '↑' : '↓'}',
+                              'Sorted by Uptime ${_ascending ? '(Oldest First)' : '(Latest First)'}',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -232,7 +157,7 @@ class _ServerListPageState extends State<ServerListPage> {
                         Icon(Icons.sort, size: 16, color: Colors.grey[600]),
                         const SizedBox(width: 8),
                         Text(
-                          'Sorted by ${_getSortDisplayName(_currentSort)} ${_ascending ? '↑' : '↓'}',
+                          'Sorted by Uptime ${_ascending ? '(Oldest First)' : '(Latest First)'}',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -288,7 +213,7 @@ class _ServerListPageState extends State<ServerListPage> {
                           Icon(Icons.sort, size: 16, color: Colors.grey[600]),
                           const SizedBox(width: 8),
                           Text(
-                            'Sorted by ${_getSortDisplayName(_currentSort)} ${_ascending ? '↑' : '↓'}',
+                            'Sorted by Uptime ${_ascending ? '(Oldest First)' : '(Latest First)'}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -447,57 +372,12 @@ class _ServerListPageState extends State<ServerListPage> {
   List<VpnServer> _sortServers(List<VpnServer> servers) {
     final sortedServers = List<VpnServer>.from(servers);
 
-    switch (_currentSort) {
-      case SortCriteria.score:
-        sortedServers.sort((a, b) => _ascending
-            ? a.score.compareTo(b.score)
-            : b.score.compareTo(a.score));
-        break;
-      case SortCriteria.ping:
-        sortedServers.sort((a, b) => _ascending
-            ? a.ping.compareTo(b.ping)
-            : b.ping.compareTo(a.ping));
-        break;
-      case SortCriteria.speed:
-        sortedServers.sort((a, b) => _ascending
-            ? a.speed.compareTo(b.speed)
-            : b.speed.compareTo(a.speed));
-        break;
-      case SortCriteria.uptime:
-        // For uptime, lower value means more recent/better
-        sortedServers.sort((a, b) => _ascending
-            ? a.uptime.compareTo(b.uptime)
-            : b.uptime.compareTo(a.uptime));
-        break;
-      case SortCriteria.sessions:
-        sortedServers.sort((a, b) => _ascending
-            ? a.numVpnSessions.compareTo(b.numVpnSessions)
-            : b.numVpnSessions.compareTo(a.numVpnSessions));
-        break;
-      case SortCriteria.country:
-        sortedServers.sort((a, b) => _ascending
-            ? a.countryLong.compareTo(b.countryLong)
-            : b.countryLong.compareTo(a.countryLong));
-        break;
-    }
+    // Sort by uptime only - lower uptime value means more recent/newer server
+    sortedServers.sort((a, b) => _ascending
+        ? a.uptime.compareTo(b.uptime)  // Ascending: oldest first
+        : b.uptime.compareTo(a.uptime)); // Descending: newest first (default)
 
     return sortedServers;
   }
 
-  String _getSortDisplayName(SortCriteria criteria) {
-    switch (criteria) {
-      case SortCriteria.score:
-        return 'Score';
-      case SortCriteria.ping:
-        return 'Ping';
-      case SortCriteria.speed:
-        return 'Speed';
-      case SortCriteria.uptime:
-        return 'Uptime';
-      case SortCriteria.sessions:
-        return 'Sessions';
-      case SortCriteria.country:
-        return 'Country';
-    }
-  }
 }

@@ -13,23 +13,40 @@ class ConnectVpn {
   ConnectVpn(this.repository);
 
   Future<Either<Failure, Unit>> call(ConnectVpnParams params) async {
+    print('🔵 ConnectVpn UseCase: Starting connection for ${params.config.name}');
+
     // Check permissions first
+    print('🔵 ConnectVpn UseCase: Checking VPN permissions...');
     final permissionResult = await repository.checkVpnPermission();
     return permissionResult.fold(
-      (failure) => Left(failure),
+      (failure) {
+        print('🔴 ConnectVpn UseCase: Permission check failed - ${failure.message}');
+        return Left(failure);
+      },
       (hasPermission) async {
+        print('🔵 ConnectVpn UseCase: Permission check result - $hasPermission');
+
         if (!hasPermission) {
+          print('🔵 ConnectVpn UseCase: Requesting VPN permissions...');
           final requestResult = await repository.requestVpnPermission();
           return requestResult.fold(
-            (failure) => Left(failure),
+            (failure) {
+              print('🔴 ConnectVpn UseCase: Permission request failed - ${failure.message}');
+              return Left(failure);
+            },
             (granted) async {
+              print('🔵 ConnectVpn UseCase: Permission request result - $granted');
               if (!granted) {
+                print('🔴 ConnectVpn UseCase: VPN permission denied by user');
                 return const Left(PermissionFailure('VPN permission denied'));
               }
+              print('🔵 ConnectVpn UseCase: Proceeding with connection after permission grant...');
               return await repository.connect(params.config);
             },
           );
         }
+
+        print('🔵 ConnectVpn UseCase: Proceeding with connection (permission already granted)...');
         return await repository.connect(params.config);
       },
     );

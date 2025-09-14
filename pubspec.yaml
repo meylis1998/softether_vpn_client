@@ -47,6 +47,7 @@ dependencies:
   json_annotation: ^4.9.0
   bloc: ^9.0.0
   http: ^1.2.1
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

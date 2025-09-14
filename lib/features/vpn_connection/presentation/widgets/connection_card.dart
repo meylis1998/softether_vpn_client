@@ -115,10 +115,14 @@ class ConnectionCard extends StatelessWidget {
     bool isConnected,
     selectedConfig,
   ) {
+    print('🔵 ConnectionCard: User tapped ${isConnected ? 'Disconnect' : 'Connect'}');
+
     if (isConnected) {
+      print('🔵 ConnectionCard: Sending disconnect event to bloc');
       context.read<VpnConnectionBloc>().add(const DisconnectFromVpn());
     } else {
       if (selectedConfig == null) {
+        print('🔴 ConnectionCard: No configuration selected');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please select a configuration first'),
@@ -126,6 +130,10 @@ class ConnectionCard extends StatelessWidget {
         );
         return;
       }
+
+      print('🔵 ConnectionCard: Sending connect event to bloc for ${selectedConfig.name}');
+      print('🔵 ConnectionCard: Config protocol: ${selectedConfig.protocol.displayName}');
+      print('🔵 ConnectionCard: Config server: ${selectedConfig.serverAddress}:${selectedConfig.serverPort}');
 
       context.read<VpnConnectionBloc>().add(ConnectToVpn(selectedConfig));
     }
